@@ -37,16 +37,16 @@ vector<double> cubic_function(vector<double> x, double a = 1., double b = 0., do
 
 pair<vector<double>, vector<double>> three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr) {
     const int n = y_arr.size() - 2;
-    vector<double> dxdy(n);
+    vector<double> dydx(n);
     std::vector<double> truncated_x_arr(n);
 
     #pragma omp parallel for
-    for (int i = 0; i < n; i++) {
-        dxdy[i] = (y_arr[i + 1] - y_arr[i - 1]) /
-                  (x_arr[i + 1] - x_arr[i - 1]); // (f(x_(i+1))-f_(x_(i-1)))/(x_(i+1)-x_(i-1))
+    for (int i = 1; i < n; i++) {
+        dydx[i] = (y_arr[i + 1] - y_arr[i - 1]) /
+                  (x_arr[i + 1] - x_arr[i - 1])-((x_arr[i+1]-x_arr[i])*(x_arr[i+1]-x_arr[i])-(x_arr[i]-x_arr[i-1])*(x_arr[i]-x_arr[i-1]))/((x_arr[i + 1] - x_arr[i - 1])); // (f(x_(i+1))-f_(x_(i-1)))/(x_(i+1)-x_(i-1))
         truncated_x_arr[i] = x_arr[i];
     }
-    return {truncated_x_arr, dxdy};
+    return {truncated_x_arr, dydx};
 }
 
 
@@ -66,7 +66,7 @@ int main() {
     auto start = high_resolution_clock::now();
 
     vector<double> logspace = generate_logspace(1000, 1e-10, 1.1, 0);
-    vector<double> y = cubic_function(logspace, 0, 0, 1, 0);
+    vector<double> y = cubic_function(logspace, 0, 1, 0, 0);
     save_file(logspace, y, "../pure_function.txt");
 
     auto derivative = three_point_stencil(logspace, y);
