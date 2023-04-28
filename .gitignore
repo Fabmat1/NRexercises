@@ -34,3 +34,4 @@
 .idea/
 cmake-build-debug/
 git_toolbox_prj.xml
+output.*
