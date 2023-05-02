@@ -10,11 +10,12 @@ using namespace std::chrono;
 using namespace std;
 
 // Function that generates a "logarithmic" space such that x_i = x_{i-1}+h and x_{i+1} = x_i + rh for all x
-vector<double> generate_logspace(int length, double h, double r, double start = 0.0) {
+vector<double> generate_logspace(int length, double h0, double r, double start = 0.0) {
     vector<double> result(length);
     result[0] = start;
-    result[1] = start + h;
+    result[1] = start + h0;
 
+    // This cannot be parallelized. Sad.
     for (int i = 2; i < length; i++) {
         result[i] = result[i - 1] + (result[i - 1] - result[i - 2]) * r;
     }
@@ -23,11 +24,12 @@ vector<double> generate_logspace(int length, double h, double r, double start = 
 }
 
 
-vector<double> cubic_function(vector<double> x, double a = 1., double b = 0., double c = 0., double d = 0.) {
+vector<double> polynomial(vector<double> x, double a = 1., double b = 0., double c = 0., double d = 0.) {
     const int n = x.size();
     vector<double> y(n);
 
-#pragma omp parallel for
+    // Use multiprocessing for fast loop execution
+    #pragma omp parallel for
     for (int i = 0; i < n; i++) {
         y[i] = x[i] * x[i] * x[i] * a + x[i] * x[i] * b + c * x[i] + d; // ax^3+bx^2+cx+d
     }
@@ -35,15 +37,17 @@ vector<double> cubic_function(vector<double> x, double a = 1., double b = 0., do
 }
 
 
-pair<vector<double>, vector<double>> three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr) {
+// Implementation of the non-uniform three-point stencil formula
+pair<vector<double>, vector<double>> non_uniform_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
     const int n = y_arr.size() - 2;
     vector<double> dydx(n);
     std::vector<double> truncated_x_arr(n);
 
+    // Use multiprocessing for fast loop execution
     #pragma omp parallel for
     for (int i = 1; i < n; i++) {
-        dydx[i] = (y_arr[i + 1] - y_arr[i - 1]) /
-                  (x_arr[i + 1] - x_arr[i - 1])-((x_arr[i+1]-x_arr[i])*(x_arr[i+1]-x_arr[i])-(x_arr[i]-x_arr[i-1])*(x_arr[i]-x_arr[i-1]))/((x_arr[i + 1] - x_arr[i - 1])); // (f(x_(i+1))-f_(x_(i-1)))/(x_(i+1)-x_(i-1))
+        // Refer to PDF to compare formulas
+        dydx[i] = ((y_arr[i]- y_arr[i-1])*r*r + y_arr[i + 1]-y_arr[i]) /((x_arr[i] - x_arr[i - 1])*r*(1+r));
         truncated_x_arr[i] = x_arr[i];
     }
     return {truncated_x_arr, dydx};
@@ -65,12 +69,14 @@ void save_file(vector<double> vector1, vector<double> vector2, const string &fil
 int main() {
     auto start = high_resolution_clock::now();
 
-    vector<double> logspace = generate_logspace(1000, 1e-10, 1.1, 0);
-    vector<double> y = cubic_function(logspace, 0, 1, 0, 0);
-    save_file(logspace, y, "../pure_function.txt");
+    double r = 1.1;
 
-    auto derivative = three_point_stencil(logspace, y);
-    save_file(derivative.first, derivative.second);
+    vector<double> logspace = generate_logspace(1000, 1e-10, r, 0);
+    vector<double> y = polynomial(logspace, 0, 1, 0, 0);
+
+    auto derivative = non_uniform_three_point_stencil(logspace, y, r);
+    // Save for plotting with matplotlib
+    save_file(derivative.first, derivative.second, "../first_derivative.txt");
 
     auto end = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(end - start);
