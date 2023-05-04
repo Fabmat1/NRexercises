@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 
 if __name__ == "__main__":
-    data = np.genfromtxt("first_derivative.txt", delimiter="\t")
+    data = np.genfromtxt("../output/first_derivative.txt", delimiter="\t")
 
     # Plot only every 20th datapoint, to not overcrowd the plot
     x = data[::20, 0::20]

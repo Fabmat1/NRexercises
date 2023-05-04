@@ -1,4 +1,3 @@
-#include "exercise1_A.h"
 #include "vector"
 #include "omp.h"
 #include <immintrin.h>
@@ -93,7 +92,7 @@ pair<vector<double>, vector<double>> sd_three_point_stencil(const vector<double>
 }
 
 
-void save_file(vector<double> vector1, vector<double> vector2, const string &filepath = "../output.txt") {
+void save_file(vector<double> vector1, vector<double> vector2, const std::string &filepath) {
     ofstream outputFile(filepath);
 
     for (int i = 0; i < vector1.size(); i++) {
@@ -116,7 +115,7 @@ int main() {
 
     auto derivative = non_uniform_three_point_stencil(logspace, y, r);
     // Save for plotting with matplotlib
-    save_file(derivative.first, derivative.second, "../first_derivative.txt");
+    save_file(derivative.first, derivative.second, "first_derivative.txt");
 
     std::cout << "Finished working on task A.1, starting task A.2" << std::endl;
 
@@ -125,7 +124,7 @@ int main() {
 
 
     auto second_derivative =sd_three_point_stencil(linspace, z);
-    save_file(second_derivative.first, second_derivative.second, "../second_derivative.txt");
+    save_file(second_derivative.first, second_derivative.second, "second_derivative.txt");
 
     auto end = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(end - start);
