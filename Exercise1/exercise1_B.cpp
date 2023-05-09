@@ -58,10 +58,9 @@ vector<double>  central_diff(const vector<double> &y_arr, double dx) {
 
 vector<double> u(const vector<double>& x){
     vector<double> result(x.size());
-
     #pragma omp parallel for
     for (int i = 0; i < x.size(); ++i) {
-        result[i] = exp(-2*cos(2*numbers::pi*x[i]));
+        result[i] = exp(-2*cos(2*M_PI*x[i]));
     }
 
     return result;
@@ -84,40 +83,39 @@ void save_file(vector<double> vector1, vector<double> vector2, const std::string
 
 
 vector<double> euler_timestepper (int n_timesteps, int gridsize){
-
+    vector<double> RMSE(n_timesteps);
+    double RMSE_proxy = 0;
     vector<double> x(gridsize);
-    x = generate_linspace(gridsize);
-    double gridfraction = 1./gridsize;
+    vector<double> y_step(gridsize);
+    vector<double> x_aly(gridsize);
+    vector<double> y_aly(gridsize);
+    vector<double> y = u(x);
+    vector<double> y_prime = central_diff(y, 1./gridsize);
 
-    vector<double> y(gridsize);
+    for (int i = 0; i < x.size(); ++i) {
+        x[i] = i*1./gridsize;
+    }
     y = u(x);
 
-    vector<double> y_prime(gridsize);
-    y_prime= central_diff(y, gridfraction);
-
-    vector<double> u_step(x.size());
-    vector<double> RMSE(n_timesteps);
-
-    vector<double> timestepped_x(x.size());
-    timestepped_x = x;
-    vector<double> analytic_sol(x.size());
-    double this_step;
-    double timefraction = 1./n_timesteps;
-
     for (int i = 0; i < n_timesteps; ++i) {
-        for (int j = 0; j < x.size(); ++j) {
-            timestepped_x[j] += timefraction;
+        #pragma omp parallel for
+        for (int j = 0; j < gridsize; ++j) {
+            x_aly[j] = x[j] + i*1./n_timesteps;
+            y_step[j] = y[j]+ 1./n_timesteps*y_prime[j];
         }
-        analytic_sol = u(timestepped_x);
 
-        for (int k = 0; k < x.size(); ++k) {
-            this_step = y[k] + timefraction*y_prime[k];
-            u_step[k] = this_step;
-            RMSE[i] += pow(this_step-analytic_sol[k],2);
+        y_aly = u(x_aly);
+
+        for (int j = 0; j < gridsize; ++j) {
+            RMSE_proxy += (y[j]-y_aly[j])*(y[j]-y_aly[j]);
         }
-        RMSE[i] = sqrt(gridfraction*RMSE[i]);
-        y_prime = central_diff(u_step, gridfraction);
-        y = u_step;
+
+        y = y_step;
+        y_prime = central_diff(y, 1./gridsize);
+
+        RMSE[i] = sqrt((1./gridsize)*RMSE_proxy);
+        RMSE_proxy = 0;
+
     }
 
     return RMSE;
@@ -142,9 +140,11 @@ void save_matrix(vector<vector<double>> matrix,  const std::string &filepath){
 
     for (auto & i : matrix) {
         for (int j = 0; j < i.size(); ++j) {
-            outputFile << i[j] << "\t";
             if(j == i.size()-1){
-                outputFile << "\n";
+                outputFile << i[j] << "\n";
+            }
+            else{
+                outputFile << i[j] << "\t";
             }
         }
     }
@@ -152,6 +152,19 @@ void save_matrix(vector<vector<double>> matrix,  const std::string &filepath){
     outputFile.close();
     std::cout << "Saved output." << std::endl;
 }
+
+
+double avg(const vector<double>& arr){
+    double mean;
+
+    for (double i : arr) {
+        mean += i;
+    }
+    mean /= arr.size();
+
+    return mean;
+}
+
 
 
 int main() {
@@ -166,23 +179,21 @@ int main() {
 
     cout << "Done with B.2" << endl;
 
-    example_RMSE(50000, 1000);
+    example_RMSE(100000, 1000);
 
-    cout << "Probing Euler method timestepper for 10 to 100 gridpoints and 10 to 100 timesteps" << endl;
+    cout << "Probing Euler method timestepper for 10 to 35 gridpoints and 10 to 35 timesteps" << endl;
 
-
-    vector<vector<double>> RMSE_matrix(90, vector<double>(90));
-    for (int i = 0; i < 90; ++i) {
-        for (int j = 0; j < 90; ++j) {
-            cout << i << j;
+    vector<vector<double>> RMSE_matrix(25, vector<double>(25));
+    for (int i = 0; i < 25; i++) {
+        cout << i+1 << "/25" << endl;
+        for (int j = 0; j < 25; j++) {
             vector<double> RMSE(i+10);
             RMSE = euler_timestepper(i+10, j+10);
-            double matrix_entry = RMSE.back();
-            RMSE_matrix[i][j] = matrix_entry;
+            RMSE_matrix[i][j] = avg(RMSE);
         }
     }
 
-//    save_matrix(RMSE_matrix, "RMSEspace.txt");
+    save_matrix(RMSE_matrix, "RMSEspace.txt");
 
     cout << "All done!" << endl;
     return 1;

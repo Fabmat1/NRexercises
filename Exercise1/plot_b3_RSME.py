@@ -3,18 +3,35 @@ from matplotlib import pyplot as plt
 
 
 if __name__ == "__main__":
-    data = np.genfromtxt("../output/RSME.txt", delimiter="\t")
+    # Plot the example RMSE growing for the Euler method as time increases
+    data = np.genfromtxt("../output/RMSE.txt", delimiter="\t")
 
-    # Plot only every 20th datapoint, to not overcrowd the plot
     x = data[:, 0]
     y = data[:, 1]
 
     # Plotting stuff...
     plt.plot(x, y, color="darkred", zorder=5)
     plt.xlim((0, 1))
-    # plt.title("")
-    plt.xlabel("x")
-    plt.ylabel("y")
+    plt.title("RMSE over time with the Euler method")
+    plt.xlabel("t")
+    plt.ylabel("RMSE")
     plt.tight_layout()
-    plt.savefig("b3_RSME.pdf")
+    plt.savefig("b3_RMSE.pdf")
+    plt.show()
+
+    # Plot heatmap of RMSE for different delta_t and delta_x
+    data = np.genfromtxt("../output/RMSEspace.txt", delimiter="\t")
+
+    # Plotting stuff...
+    plt.imshow(data, cmap="viridis", interpolation="bilinear", aspect="equal", extent=[10, 35, 35, 10])
+    cbar = plt.colorbar()
+    cbar.ax.get_yaxis().labelpad = 15
+    cbar.ax.set_ylabel('Average RSME', rotation=270)
+
+    plt.gca().invert_yaxis()
+    plt.title("RMSE heatmap for the Euler method")
+    plt.xlabel("$N_x$")
+    plt.ylabel("$N_t$")
+    plt.tight_layout()
+    plt.savefig("b3_RMSE_heatmap.pdf")
     plt.show()
