@@ -16,5 +16,5 @@ if __name__ == "__main__":
     plt.xlabel("x")
     plt.ylabel("y")
     plt.tight_layout()
-    plt.savefig("b2_plot.pdf")
+    plt.savefig("b3_RSME.pdf")
     plt.show()

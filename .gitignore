@@ -32,8 +32,12 @@
 *.app
 
 .idea/
-cmake-build-debug/
+cmake-build-*
 git_toolbox_prj.xml
 first_derivative*
 *.txt
 *.pdf
+CMakeFiles
+output/*
+Exercise1_output/*
+/Exercise1/Exercise1_output/

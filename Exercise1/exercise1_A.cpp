@@ -8,25 +8,6 @@
 using namespace std::chrono;
 using namespace std;
 
-// Function that generates a linear space such that x_i = x_{i-1}+h for all i
-vector<double> generate_linspace(int length, double h, double start = 0.0) {
-    vector<double> result(length);
-
-    // Use AVX2 instructions for efficiency
-    __m256d vec_h = _mm256_set_pd(h, h, h, h);
-
-    // Vectorized and parallelized loop to calculate result[i] = start+i*h
-    #pragma omp parallel for
-    for (int i = 0; i < length; i += 4) {
-        __m256d vec_start = _mm256_set1_pd(start + i*h);
-
-        __m256d vec_result = _mm256_fmadd_pd(vec_h, _mm256_set_pd(3, 2, 1, 0), vec_start);
-        _mm256_storeu_pd(&result[i], vec_result);
-    }
-
-    return result;
-}
-
 
 // Function that generates a "logarithmic" space such that x_i = x_{i-1}+h and x_{i+1} = x_i + rh for all i
 vector<double> generate_logspace(int length, double h0, double r, double start = 0.0) {
@@ -74,17 +55,16 @@ pair<vector<double>, vector<double>> non_uniform_three_point_stencil(const vecto
 
 
 // Implementation of the uniform second derivative three-point stencil formula
-pair<vector<double>, vector<double>> sd_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr) {
+pair<vector<double>, vector<double>> sd_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
     const int n = y_arr.size() - 2;
     vector<double> ddydxx(n);
     std::vector<double> truncated_x_arr(n);
-    double h = x_arr[1] - x_arr[0];
 
     // Use multiprocessing for fast loop execution
     #pragma omp parallel for
     for (int i = 1; i < n+1; i++) {
         // Refer to PDF to compare formulas
-        ddydxx[i-1] = ((y_arr[i-1]+ y_arr[i+1])-2*y_arr[i]) /(h*h);
+        ddydxx[i-1] = 2*((y_arr[i-1]+ (1/r)*y_arr[i+1])-(1+1/r)*y_arr[i]) /((1+r)*(x_arr[i] - x_arr[i - 1])*(x_arr[i] - x_arr[i - 1]));
         truncated_x_arr[i-1] = x_arr[i];
     }
 
@@ -119,11 +99,10 @@ int main() {
 
     std::cout << "Finished working on task A.1, starting task A.2" << std::endl;
 
-    vector<double> linspace = generate_linspace(100, 1);
-    vector<double> z = polynomial(linspace, 1, 1, 0, 0);
+    vector<double> z = polynomial(logspace, 0, 1, 0, 0);
 
 
-    auto second_derivative =sd_three_point_stencil(linspace, z);
+    auto second_derivative =sd_three_point_stencil(logspace, z, r);
     save_file(second_derivative.first, second_derivative.second, "second_derivative.txt");
 
     auto end = high_resolution_clock::now();
