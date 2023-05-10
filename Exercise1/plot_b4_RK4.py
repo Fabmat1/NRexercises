@@ -15,7 +15,7 @@ if __name__ == "__main__":
     plt.xlabel("t")
     plt.ylabel("RMSE")
     plt.tight_layout()
-    plt.savefig("b3_RMSE.pdf")
+    plt.savefig("b4_RMSE.pdf")
     plt.show()
 
     # Plot heatmap of RMSE for different delta_t and delta_x
@@ -33,5 +33,5 @@ if __name__ == "__main__":
     plt.xlabel("$N_x$")
     plt.ylabel("$N_t$")
     plt.tight_layout()
-    plt.savefig("b3_RMSE_heatmap_RK4.pdf")
+    plt.savefig("b4_RMSE_heatmap_RK4.pdf")
     plt.show()
