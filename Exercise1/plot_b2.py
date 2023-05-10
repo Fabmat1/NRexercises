@@ -7,7 +7,7 @@ def u(x):
 
 
 if __name__ == "__main__":
-    data = np.genfromtxt("../output/test_RK4.txt", delimiter="\t")
+    data = np.genfromtxt("../output/b2_data.txt", delimiter="\t")
 
     # Plot only every 20th datapoint, to not overcrowd the plot
     x = data[:, 0]

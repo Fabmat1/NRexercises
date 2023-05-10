@@ -220,7 +220,7 @@ vector<double> RK4_timestepper(int n_timesteps, int gridsize) {
             w2 = interpolate_y_prime(x, y_prime, x[j] + w1/(2*n_timesteps));
             w3 = interpolate_y_prime(x, y_prime, x[j] + w2/(2*n_timesteps));
             w4 = interpolate_y_prime(x, y_prime, x[j] + w3/n_timesteps);
-            y_step[j] = y[j] + (w1 + 2 * w2 + 2 * w3 + w4) / (6 * n_timesteps) ;
+            y_step[j] = y[j] + (w1 + 2 * w2 + 2 * w3 + w4) / (6 * n_timesteps);
 //            y_step[j] = y[j] + 1. / n_timesteps * w1;
         }
 
