@@ -29,7 +29,7 @@ vector<double> polynomial(vector<double> x, double a = 1., double b = 0., double
     vector<double> y(n);
 
     // Use multiprocessing for fast loop execution
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int i = 0; i < n; i++) {
         y[i] = x[i] * x[i] * x[i] * a + x[i] * x[i] * b + c * x[i] + d; // ax^3+bx^2+cx+d
     }
@@ -38,16 +38,18 @@ vector<double> polynomial(vector<double> x, double a = 1., double b = 0., double
 
 
 // Implementation of the non-uniform three-point stencil formula
-pair<vector<double>, vector<double>> non_uniform_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
+pair<vector<double>, vector<double>>
+non_uniform_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
     const int n = y_arr.size() - 2;
     vector<double> dydx(n);
     std::vector<double> truncated_x_arr(n);
 
     // Use multiprocessing for fast loop execution
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int i = 1; i < n; i++) {
         // Refer to PDF to compare formulas
-        dydx[i] = ((y_arr[i]- y_arr[i-1])*r*r + y_arr[i + 1]-y_arr[i]) /((x_arr[i] - x_arr[i - 1])*r*(1+r));
+        dydx[i] = ((y_arr[i] - y_arr[i - 1]) * r * r + y_arr[i + 1] - y_arr[i]) /
+                  ((x_arr[i] - x_arr[i - 1]) * r * (1 + r));
         truncated_x_arr[i] = x_arr[i];
     }
     return {truncated_x_arr, dydx};
@@ -55,17 +57,19 @@ pair<vector<double>, vector<double>> non_uniform_three_point_stencil(const vecto
 
 
 // Implementation of the uniform second derivative three-point stencil formula
-pair<vector<double>, vector<double>> sd_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
+pair<vector<double>, vector<double>>
+sd_three_point_stencil(const vector<double> &x_arr, const vector<double> &y_arr, double r) {
     const int n = y_arr.size() - 2;
     vector<double> ddydxx(n);
     std::vector<double> truncated_x_arr(n);
 
     // Use multiprocessing for fast loop execution
-    #pragma omp parallel for
-    for (int i = 1; i < n+1; i++) {
+#pragma omp parallel for
+    for (int i = 1; i < n + 1; i++) {
         // Refer to PDF to compare formulas
-        ddydxx[i-1] = 2*((y_arr[i-1]+ (1/r)*y_arr[i+1])-(1+1/r)*y_arr[i]) /((1+r)*(x_arr[i] - x_arr[i - 1])*(x_arr[i] - x_arr[i - 1]));
-        truncated_x_arr[i-1] = x_arr[i];
+        ddydxx[i - 1] = 2 * ((y_arr[i - 1] + (1 / r) * y_arr[i + 1]) - (1 + 1 / r) * y_arr[i]) /
+                        ((1 + r) * (x_arr[i] - x_arr[i - 1]) * (x_arr[i] - x_arr[i - 1]));
+        truncated_x_arr[i - 1] = x_arr[i];
     }
 
     return {truncated_x_arr, ddydxx};
@@ -102,7 +106,7 @@ int main() {
     vector<double> z = polynomial(logspace, 0, 1, 0, 0);
 
 
-    auto second_derivative =sd_three_point_stencil(logspace, z, r);
+    auto second_derivative = sd_three_point_stencil(logspace, z, r);
     save_file(second_derivative.first, second_derivative.second, "second_derivative.txt");
 
     auto end = high_resolution_clock::now();

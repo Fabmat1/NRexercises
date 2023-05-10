@@ -1,7 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 if __name__ == "__main__":
     data = np.genfromtxt("../output/second_derivative.txt", delimiter="\t")
 
