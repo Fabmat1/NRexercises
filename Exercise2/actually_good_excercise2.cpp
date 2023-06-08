@@ -1,0 +1,239 @@
+#include "vector"
+#include "omp.h"
+#include <immintrin.h>
+#include "chrono"
+#include "iostream"
+#include <fstream>
+#include "cmath"
+#include <functional>
+#include <utility>
+#include "math.h"
+
+
+using namespace std;
+
+vector<double> psi(vector<double> r, double M) {
+    vector<double> result(r.size());
+    for (int i = 0; i < r.size(); ++i) {
+        result[i] = 1 + M/2*r[i];
+    }
+    return result;
+}
+
+vector<double> dr_ln_psi(vector<double> r, double M) {
+    vector<double> result(r.size());
+    vector<double> psivec = psi(r, M);
+    for (int i = 0; i < r.size() ; ++i) {
+        result[i] = log(psivec[i]);
+    }
+    return result;
+}
+
+
+vector<double> spatial_derivative(double dx, const vector<double> &y, bool neg_bound, bool theotherthing) {
+    int s = y.size();
+    int factor;
+    int factor2;
+    if (neg_bound) {
+        factor = -1;
+    } else {
+        factor = 1;
+    }
+
+    if (theotherthing) {
+        factor2 = 1;
+    } else {
+        factor2 = 0;
+    }
+
+    vector<double> result(s);
+    for (int i = 2; i < y.size() - 2; ++i) {
+        result[i] = (1. / 12 * y[i - 2] - 2./3 * y[i - 1] + 2./3 * y[i + 1] - 1. / 12 * y[i + 2]) / (dx);
+    }
+    result[0] = (1. / 12 * y[2] * factor - 2./3 * y[1] * factor + 2./3 * y[1] - 1. / 12 * y[2]) / (dx);
+    result[1] = (1. / 12 * y[1] * factor - 2./3 * y[0] + 2./3 * y[2] - 1. / 12 * y[3]) / (dx);
+    result[s - 1] = (1. / 12 * y[s - 3] - 2./3 * y[s - 2] + 2./3 * factor2 - 1. / 12 * factor2) / (dx);
+    result[s - 2] = (1. / 12 * y[s - 4] - 2./3 * y[s - 3] + 2./3 * y[s - 1] - 1. / 12 * factor2) / (dx);
+
+    return result;
+}
+
+
+vector<double> ddt_AB(vector<double> AB, vector<double> alpha, vector<double> K_AB, vector<double> r, double M) {
+    vector<double> result(alpha.size());
+    vector<double> psivec = psi(r, M);
+    for (int i = 0; i < alpha.size(); ++i) {
+        result[i] = -2 * alpha[i] * AB[i] * pow(psivec[i], 4) * K_AB[i];
+    }
+    return result;
+}
+
+vector<double> ddt_D_AB(const vector<double>& D_AB, vector<double> alpha, vector<double> K_AB, vector<double> D_alpha, double dr) {
+    vector<double> result(alpha.size());
+    vector<double> K_AB_deriv = spatial_derivative(dr, K_AB, false, false);
+    for (int i = 0; i < alpha.size(); ++i) {
+        result[i] = -2 * alpha[i] * (K_AB[i] * D_alpha[i] + K_AB_deriv[i]);
+    }
+    return result;
+}
+
+
+vector<double> ddt_K_A(vector<double> K_A, vector<double> alpha, vector<double> A, vector<double> K_B,
+                       vector<double> D_A, vector<double> D_B, vector<double> D_alpha, vector<double> r, double dr, double M) {
+    vector<double> result(alpha.size());
+    vector<double> Dalpha_DB_sum(D_alpha.size());
+    vector<double> dr_ln_psi_vec = dr_ln_psi(r, M);
+    for (int i = 0; i < D_alpha.size(); ++i) {
+        Dalpha_DB_sum[i] = D_alpha[i] + (D_B[i] + 4* dr_ln_psi_vec[i]);
+    }
+    vector<double> Dalpha_DB_sum_deriv(alpha.size());
+    Dalpha_DB_sum_deriv = spatial_derivative(dr, Dalpha_DB_sum, true, false);
+
+    for (int i = 0; i < alpha.size(); ++i) {
+        result[i] = -alpha[i] / A[i] * (Dalpha_DB_sum_deriv[i] + D_alpha[i] * D_alpha[i] - (D_alpha[i] * (D_B[i]+ 4* dr_ln_psi_vec[i])) / 2
+                                        + ((D_B[i]+ 4* dr_ln_psi_vec[i]) * (D_B[i]+ 4* dr_ln_psi_vec[i])) / 2 - ((D_A[i]+ 4* dr_ln_psi_vec[i]) * (D_B[i]+ 4* dr_ln_psi_vec[i])) / 2 -
+                                        A[i] * K_A[i] * (K_A[i] + 2 * K_B[i]) - 1 / r[i] * ((D_A[i]+ 4* dr_ln_psi_vec[i]) - 2 * (D_B[i]+ 4* dr_ln_psi_vec[i])));
+    }
+    return result;
+}
+
+
+vector<double> ddt_K_B(vector<double> K_B,vector<double> alpha, vector<double> A, vector<double> B, vector<double> K_A,
+                       vector<double> D_A, vector<double> D_B, vector<double> D_alpha, vector<double> r, double dr, double M) {
+    vector<double> result(alpha.size());
+    vector<double> dr_ln_psi_vec = dr_ln_psi(r, M);
+    vector<double> D_B_deriv = spatial_derivative(dr, D_B, true, false);
+
+    for (int i = 0; i < alpha.size(); ++i) {
+        result[i] = -alpha[i] / (2 * A[i]) * (D_B_deriv[i] + D_alpha[i] * (D_B[i] + 4 * dr_ln_psi_vec[i]) +
+                                              (D_B[i] + 4 * dr_ln_psi_vec[i]) * (D_B[i] + 4 * dr_ln_psi_vec[i]) -
+                                              ((D_A[i] + 4 * dr_ln_psi_vec[i]) * (D_B[i] + 4 * dr_ln_psi_vec[i])) / 2
+                                              - 1 / r[i] * ((D_A[i]+ 4* dr_ln_psi_vec[i]) - 2 * D_alpha[i] - 4 * (D_B[i]+ 4* dr_ln_psi_vec[i])) -
+                                              (2 * (A[i] - B[i])) / (r[i] * r[i] * B[i]))
+                    + alpha[i] * K_B[i] * (K_A[i] + 2 * K_B[i]);
+    }
+    return result;
+}
+
+vector<double> generate_linspace(int N, double dr){
+    vector<double> result(N);
+    for (int i = 0; i < N; ++i) {
+        result[i] = (i+1./2)*dr;
+    }
+    return result;
+}
+
+
+vector<double> MVS(vector<double> v, double k) {
+    vector<double> out(v.size());
+    for (int i = 0; i < v.size(); i++)
+        out[i] = v[i] * k;
+    return out;
+}
+
+
+vector<double> addv(vector<double> v, vector<double> w) {
+    vector<double> out(v.size());
+    for (int i = 0; i < v.size(); i++)
+        out[i] = v[i] + w[i];
+    return out;
+}
+
+
+vector<vector<double>> RK4(vector<vector<double>> data, double dt, double M, double dr) {
+    vector<double> A = data[0];
+    vector<double> B = data[1];
+    vector<double> D_A = data[2];
+    vector<double> D_B = data[3];
+    vector<double> K_A = data[4];
+    vector<double> K_B = data[5];
+    vector<double> alpha = data[6];
+    vector<double> D_alpha = data[7];
+    vector<double> r = data[8];
+
+    vector<double> w1_A = ddt_AB(A, alpha, K_A, r, M);
+    vector<double> w1_B = ddt_AB(B, alpha, K_B, r, M);
+    vector<double> w1_D_A = ddt_D_AB(D_A, alpha, K_A, D_alpha, dr);
+    vector<double> w1_D_B = ddt_D_AB(D_B, alpha, K_B, D_alpha, dr);
+    vector<double> w1_K_A = ddt_K_A(K_A, alpha, A, K_B, D_A, D_B, D_alpha, r, dr, M);
+    vector<double> w1_K_B = ddt_K_B(K_B, alpha, A, B, K_A, D_A, D_B, D_alpha, r, dr, M);
+
+    vector<double> w2_A = ddt_AB(addv(A, MVS(w1_A, 0.5 * dt)), alpha, addv(K_A, MVS(w1_K_A, 0.5 * dt)), r, M);
+    vector<double> w2_B = ddt_AB(addv(B, MVS(w1_A, 0.5 * dt)), alpha, addv(K_B, MVS(w1_K_B, 0.5 * dt)), r, M);
+    vector<double> w2_D_A = ddt_D_AB(addv(D_A, MVS(w1_D_A, 0.5 * dt)), alpha, addv(K_A, MVS(w1_K_A, 0.5 * dt)), D_alpha, dr);
+    vector<double> w2_D_B = ddt_D_AB(addv(D_B, MVS(w1_D_B, 0.5 * dt)), alpha, addv(K_B, MVS(w1_K_B, 0.5 * dt)), D_alpha, dr);
+    vector<double> w2_K_A = ddt_K_A(addv(K_A, MVS(w1_K_A, 0.5 * dt)), alpha, addv(A, MVS(w1_A, 0.5 * dt)), addv(K_B, MVS(w1_K_B, 0.5 * dt)), addv(D_A, MVS(w1_D_A, 0.5 * dt)), addv(D_B, MVS(w1_D_B, 0.5 * dt)), D_alpha, r, dr, M);
+    vector<double> w2_K_B = ddt_K_B(addv(K_B, MVS(w1_K_B, 0.5 * dt)), alpha, addv(A, MVS(w1_A, 0.5 * dt)), addv(B, MVS(w1_B, 0.5 * dt)), addv(K_A, MVS(w1_K_A, 0.5 * dt)), addv(D_A, MVS(w1_D_A, 0.5 * dt)),  addv(D_B, MVS(w1_D_B, 0.5 * dt)), D_alpha, r, dr, M);
+
+    vector<double> w3_A = ddt_AB(addv(A, MVS(w2_A, 0.5 * dt)), alpha, addv(K_A, MVS(w2_K_A, 0.5 * dt)), r, M);
+    vector<double> w3_B = ddt_AB(addv(B, MVS(w2_A, 0.5 * dt)), alpha, addv(K_B, MVS(w2_K_B, 0.5 * dt)), r, M);
+    vector<double> w3_D_A = ddt_D_AB(addv(D_A, MVS(w2_D_A, 0.5 * dt)), alpha, addv(K_A, MVS(w2_K_A, 0.5 * dt)), D_alpha, dr);
+    vector<double> w3_D_B = ddt_D_AB(addv(D_B, MVS(w2_D_B, 0.5 * dt)), alpha, addv(K_B, MVS(w2_K_B, 0.5 * dt)), D_alpha, dr);
+    vector<double> w3_K_A = ddt_K_A(addv(K_A, MVS(w2_K_A, 0.5 * dt)), alpha, addv(A, MVS(w2_A, 0.5 * dt)), addv(K_B, MVS(w2_K_B, 0.5 * dt)), addv(D_A, MVS(w2_D_A, 0.5 * dt)), addv(D_B, MVS(w2_D_B, 0.5 * dt)), D_alpha, r, dr, M);
+    vector<double> w3_K_B = ddt_K_B(addv(K_B, MVS(w2_K_B, 0.5 * dt)), alpha, addv(A, MVS(w2_A, 0.5 * dt)), addv(B, MVS(w2_B, 0.5 * dt)), addv(K_A, MVS(w2_K_A, 0.5 * dt)), addv(D_A, MVS(w2_D_A, 0.5 * dt)),  addv(D_B, MVS(w2_D_B, 0.5 * dt)), D_alpha, r, dr, M);
+
+    vector<double> w4_A = ddt_AB(addv(A, MVS(w3_A, dt)), alpha, addv(K_A, MVS(w3_K_A, dt)), r, M);
+    vector<double> w4_B = ddt_AB(addv(B, MVS(w3_A, dt)), alpha, addv(K_B, MVS(w3_K_B, dt)), r, M);
+    vector<double> w4_D_A = ddt_D_AB(addv(D_A, MVS(w3_D_A, dt)), alpha, addv(K_A, MVS(w3_K_A, dt)), D_alpha, dr);
+    vector<double> w4_D_B = ddt_D_AB(addv(D_B, MVS(w3_D_B, dt)), alpha, addv(K_B, MVS(w3_K_B, dt)), D_alpha, dr);
+    vector<double> w4_K_A = ddt_K_A(addv(K_A, MVS(w3_K_A, dt)), alpha, addv(A, MVS(w3_A, dt)), addv(K_B, MVS(w3_K_B, dt)), addv(D_A, MVS(w3_D_A, dt)), addv(D_B, MVS(w3_D_B, dt)), D_alpha, r, dr, M);
+    vector<double> w4_K_B = ddt_K_B(addv(K_B, MVS(w3_K_B, dt)), alpha, addv(A, MVS(w3_A, dt)), addv(B, MVS(w3_B, dt)), addv(K_A, MVS(w3_K_A, dt)), addv(D_A, MVS(w3_D_A, dt)),  addv(D_B, MVS(w3_D_B, dt)), D_alpha, r, dr, M);
+
+    vector<vector<double>> ndata(9, vector<double>(r.size()));
+
+    ndata[0] = MVS(addv(addv(addv(w1_A, MVS(w2_A, 2)), MVS(w3_A, 2)), w4_A), dt / 6);
+    ndata[1] = MVS(addv(addv(addv(w1_B, MVS(w2_B, 2)), MVS(w3_B, 2)), w4_B), dt / 6);
+    ndata[2] = MVS(addv(addv(addv(w1_D_A, MVS(w2_D_A, 2)), MVS(w3_D_A, 2)), w4_D_A), dt / 6);
+    ndata[3] = MVS(addv(addv(addv(w1_D_B, MVS(w2_D_B, 2)), MVS(w3_D_B, 2)), w4_D_B), dt / 6);
+    ndata[4] = MVS(addv(addv(addv(w1_K_A, MVS(w2_K_A, 2)), MVS(w3_K_A, 2)), w4_K_A), dt / 6);
+    ndata[5] = MVS(addv(addv(addv(w1_K_B, MVS(w2_K_B, 2)), MVS(w3_K_B, 2)), w4_K_B), dt / 6);
+    ndata[6] = alpha;
+    ndata[7] = D_alpha;
+    ndata[8] = r;
+
+    cout << ndata[1][5] << endl;
+
+    return ndata;
+}
+
+
+void timeevolution(const vector<double>& r, double M, double dt, double N_T, double dr){
+    vector<vector<double>> tardata(9, vector<double>(r.size()));
+
+    vector<double> alpha(r.size(), 1);
+    vector<double> D_alpha(r.size(), 0);
+    vector<double> K_A(r.size(), 0);
+    vector<double> K_B(r.size(), 0);
+    vector<double> A(r.size(), 1);
+    vector<double> B(r.size(), 1);
+    vector<double> D_A(r.size(), 0);
+    vector<double> D_B(r.size(), 0);
+
+    tardata[0] = A;
+    tardata[1] = B;
+    tardata[2] = D_A;
+    tardata[3] = D_B;
+    tardata[4] = K_A;
+    tardata[5] = K_B;
+    tardata[6] = alpha ;
+    tardata[7] = D_alpha;
+    tardata[8] = r;
+
+    for (int i = 0; i < N_T; ++i) {
+        tardata = RK4(tardata, dt, M, dr);
+    }
+
+    for (int i = 0; i < tardata[1].size(); ++i) {
+        cout << tardata[1][i] << endl;
+    }
+}
+
+
+int main() {
+    double dr = 0.01;
+    vector<double> r = generate_linspace(1000, dr);
+
+    timeevolution(r, 1., 0.1, 1000, dr);
+
+    return 1;
+}

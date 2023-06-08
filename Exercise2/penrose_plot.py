@@ -36,4 +36,5 @@ plt.legend(["$r=0$",
             "$t=-\infty$, $r=$const.",
             "$t=\infty$, $r=$const."], loc="upper left")
 plt.tight_layout()
+plt.savefig("penrose.pdf")
 plt.show()
