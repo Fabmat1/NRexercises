@@ -38,10 +38,11 @@ vector<double> spatial_derivative(double dx, const vector<double> &y, bool neg_b
     for (int i = 2; i < y.size() - 2; ++i) {
         result[i] = (1. / 12 * y[i - 2] - 2./3 * y[i - 1] + 2./3 * y[i + 1] - 1. / 12 * y[i + 2]) / (dx);
     }
+    s -= 1;
     result[0] = (1. / 12 * y[1] * factor - 2./3 * y[0] * factor + 2./3 * y[1] - 1. / 12 * y[2]) / (dx);
     result[1] = (1. / 12 * y[0] * factor - 2./3 * y[0] + 2./3 * y[2] - 1. / 12 * y[3]) / (dx);
-    result[s - 1] = (1. / 12 * y[s - 3] - 2./3 * y[s - 2] + 2./3 * factor2 - 1. / 12 * factor2) / (dx);
-    result[s - 2] = (1. / 12 * y[s - 4] - 2./3 * y[s - 3] + 2./3 * y[s - 1] - 1. / 12 * factor2) / (dx);
+    result[s] = (1. / 12 * y[s - 2] - 2./3 * y[s - 1] + 2./3 * factor2 - 1. / 12 * factor2) / (dx);
+    result[s - 1] = (1. / 12 * y[s - 3] - 2./3 * y[s - 2] + 2./3 * y[s] - 1. / 12 * factor2) / (dx);
 
     return result;
 }
@@ -83,7 +84,7 @@ vector<double> ddt_AB(vector<double> AB, vector<double> alpha, vector<double> K_
 
 vector<double> ddt_D_AB(const vector<double>& D_AB, vector<double> alpha, vector<double> K_AB, double dr) {
     vector<double> result(alpha.size());
-    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, false);
+    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, true);
     vector<double> K_AB_deriv = spatial_derivative(dr, K_AB, false, true);
     for (int i = 0; i < alpha.size(); ++i) {
         result[i] = -2 * alpha[i] * (K_AB[i] * D_alpha[i] + K_AB_deriv[i]);
@@ -98,7 +99,7 @@ vector<double> ddt_K_A(vector<double> K_A, vector<double> alpha, vector<double> 
     vector<double> drDalpha(alpha.size());
     vector<double> Dalpha_DB_deriv_sum(alpha.size());
     vector<double> drDB(alpha.size());
-    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, false);
+    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, true);
     drDalpha = spatial_derivative(dr, D_alpha, true, true);
     drDB = spatial_derivative(dr, D_B, true, true);
 
@@ -125,7 +126,7 @@ vector<double> ddt_K_B(vector<double> K_B,vector<double> alpha, vector<double> A
     vector<double> ddr_ln_psi_vec = ddr_ln_psi(r, M);
     vector<double> D_B_deriv = spatial_derivative(dr, D_B, true, true);
     vector<double> psi_vec = psi(r, M);
-    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, false);
+    vector<double> D_alpha = spatial_derivative(dr, vec_log(alpha), true, true);
 
 
     for (int i = 0; i < alpha.size(); ++i) {
@@ -175,6 +176,71 @@ vector<double> addv(vector<double> v, vector<double> w) {
 }
 
 
+vector<double> calc_app_horizon(vector<double> A, vector<double> B, vector<double> K_B, vector<double> r, double dr, double M){
+    vector<double> result(r.size());
+    vector<double> psi_vec = psi(r, M);
+    vector<double> B_non_tilde(r.size());
+
+    for (int i = 0; i < r.size(); ++i) {
+        B_non_tilde[i] = B[i]*pow(psi_vec[i], 4);
+    }
+
+    vector<double> B_deriv = spatial_derivative(dr, B_non_tilde, false, false);
+
+    for (int i = 0; i < r.size(); ++i) {
+        result[i] = 1/(sqrt(A[i]*pow(psi_vec[i], 4)))*(2/r[i]+B_deriv[i]/(B[i]*pow(psi_vec[i], 4)))-2*K_B[i];
+    }
+
+    return result;
+}
+
+
+double linearInterpolation(const vector<double>& x, const vector<double>& y, double x_0) {
+    // Check if arrays have the same size
+    if (x.size() != y.size()) {
+        cerr << "Error: x and y arrays must have the same size." << endl;
+        return 0.0; // Return a default value or handle the error as needed
+    }
+
+    // Find the indices of the two points bounding x_0
+    size_t i = 0;
+    while (i < x.size() && x[i] < x_0) {
+        i++;
+    }
+
+    // Perform linear interpolation
+    if (i == 0) {
+        cerr << "Error: x_0 is smaller than the smallest x value." << endl;
+        return 0.0; // Return a default value or handle the error as needed
+    } else if (i == x.size()) {
+        cerr << "Error: x_0 is larger than the largest x value." << endl;
+        return 0.0; // Return a default value or handle the error as needed
+    } else {
+        double x1 = x[i - 1];
+        double x2 = x[i];
+        double y1 = y[i - 1];
+        double y2 = y[i];
+        double slope = (y2 - y1) / (x2 - x1);
+        double interpolatedY = y1 + slope * (x_0 - x1);
+        return interpolatedY;
+    }
+}
+
+
+double calc_surf_area(double r_h, vector<double> B, vector<double> r, double M){
+    vector<double> psi_vec = psi(r, M);
+    vector<double> sh_vec(B.size());
+
+    for (int i = 0; i < sh_vec.size(); ++i) {
+        sh_vec[i] = B[i] * pow(psi_vec[i], 4);
+    }
+
+    double B_at_rh = linearInterpolation(r, sh_vec, r_h);
+
+    return 4*M_PI*B_at_rh*r_h*r_h;
+}
+
+
 vector<vector<double>> RK4(vector<vector<double>> data, double dt, double M, double dr) {
     vector<double> A = data[0];
     vector<double> B = data[1];
@@ -218,7 +284,7 @@ vector<vector<double>> RK4(vector<vector<double>> data, double dt, double M, dou
     vector<double> w4_K_B = ddt_K_B(addv(K_B, MVS(w3_K_B, dt)), addv(alpha, MVS(w3_alpha, dt)), addv(A, MVS(w3_A, dt)), addv(B, MVS(w3_B, dt)), addv(K_A, MVS(w3_K_A, dt)), addv(D_A, MVS(w3_D_A, dt)),  addv(D_B, MVS(w3_D_B, dt)), r, dr, M);
     vector<double> w4_alpha = ddt_alpha(addv(alpha, MVS(w3_alpha, dt)), addv(K_A, MVS(w3_K_A, dt)), addv(K_B, MVS(w3_K_B,  dt)));
 
-    vector<vector<double>> ndata(9, vector<double>(r.size()));
+    vector<vector<double>> ndata(11, vector<double>(r.size()));
 
     ndata[0] = addv(A, MVS(addv(addv(addv(w1_A, MVS(w2_A, 2)), MVS(w3_A, 2)), w4_A), dt / 6));
     ndata[1] = addv(B, MVS(addv(addv(addv(w1_B, MVS(w2_B, 2)), MVS(w3_B, 2)), w4_B), dt / 6));
@@ -229,6 +295,7 @@ vector<vector<double>> RK4(vector<vector<double>> data, double dt, double M, dou
     ndata[6] = addv(alpha, MVS(addv(addv(addv(w1_alpha, MVS(w2_alpha, 2)), MVS(w3_alpha, 2)), w4_alpha), dt / 6));;
     ndata[7] = spatial_derivative(dr, vec_log(ndata[6]), true, false);
     ndata[8] = r;
+    ndata[9] = calc_app_horizon(ndata[0], ndata[1], ndata[5], r, dr, M);
 
     return ndata;
 }
@@ -242,14 +309,18 @@ void savetofile(string fname, vector<double> timestepline){
     if (!of){
         ofstream of(fname);
         for (int i = 0; i < timestepline.size()-1; ++i) {
-            of << std::fixed << std::setprecision(8) << timestepline[i] << ", ";
+            if (i % 5 == 0) {
+                of << fixed << setprecision(8) << timestepline[i] << ", ";
+            }
         }
         of << timestepline[timestepline.size()-1] << "\n";
         of.close();
     }
     else {
         for (int i = 0; i < timestepline.size()-1; ++i) {
-            of << std::fixed << std::setprecision(8) << timestepline[i] << ", ";
+            if (i % 5 == 0) {
+                of << fixed << setprecision(8) << timestepline[i] << ", ";
+            }
         }
         of << timestepline[timestepline.size()-1] << "\n";
         of.close();
@@ -258,9 +329,48 @@ void savetofile(string fname, vector<double> timestepline){
 
 
 
+double findZeroPoint(const vector<double>& xData, const vector<double>& yData) {
+    if (xData.empty() || yData.empty() || xData.size() != yData.size()) {
+        cerr << "Invalid input data!" << endl;
+        return 0.0;
+    }
+
+    size_t dataSize = xData.size();
+
+    // Find the first data point where x > 0.10 and y changes sign
+    size_t firstIndex = 0;
+    size_t secondIndex = 0;
+    for (size_t i = 1; i < dataSize; ++i) {
+        if (xData[i] > 0.10) {
+            if ((yData[i - 1] > 0 && yData[i] < 0) || (yData[i - 1] < 0 && yData[i] > 0)) {
+                firstIndex = i - 1;
+                secondIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (secondIndex == 0) {
+        cerr << "No intersection point found where x > 0.10!" << endl;
+        return 0.0;
+    }
+
+    // Perform linear interpolation
+    double xFirst = xData[firstIndex];
+    double xSecond = xData[secondIndex];
+    double yFirst = yData[firstIndex];
+    double ySecond = yData[secondIndex];
+
+    double slope = (ySecond - yFirst) / (xSecond - xFirst);
+    double xIntersection = xFirst - (yFirst / slope);
+
+    return xIntersection;
+}
+
+
 void timeevolution(const vector<double>& r, double M, double dt, double N_T, double dr){
 
-    vector<vector<double>> tardata(9, vector<double>(r.size()));
+    vector<vector<double>> tardata(11, vector<double>(r.size()));
 
     vector<double> alpha(r.size(), 1);
     vector<double> D_alpha(r.size(), 0);
@@ -280,6 +390,7 @@ void timeevolution(const vector<double>& r, double M, double dt, double N_T, dou
     tardata[6] = alpha ;
     tardata[7] = D_alpha;
     tardata[8] = r;
+    tardata[9] = calc_app_horizon(A, B, K_B, r, dr, M);
     savetofile("A.csv", tardata[0]);
     savetofile("B.csv", tardata[1]);
     savetofile("D_A.csv", tardata[2]);
@@ -289,11 +400,18 @@ void timeevolution(const vector<double>& r, double M, double dt, double N_T, dou
     savetofile("alpha.csv", tardata[6]);
     savetofile("D_alpha.csv", tardata[7]);
     savetofile("r.csv", tardata[8]);
+    savetofile("r_BH_apparent.csv", tardata[9]);
+
+    vector<double> r_bh_scalar;
+    vector<double> S_bh_scalar;
 
 
     for (int i = 0; i < N_T; ++i) {
         tardata = RK4(tardata, dt, M, dr);
-        if (i % 200 == 0) {
+        r_bh_scalar.push_back(findZeroPoint(r, tardata[9]));
+        S_bh_scalar.push_back(calc_surf_area(r_bh_scalar[r_bh_scalar.size()-1], tardata[1], tardata[8], M));
+
+        if (i % 25 == 0) {
             savetofile("A.csv", tardata[0]);
             savetofile("B.csv", tardata[1]);
             savetofile("D_A.csv", tardata[2]);
@@ -303,18 +421,21 @@ void timeevolution(const vector<double>& r, double M, double dt, double N_T, dou
             savetofile("alpha.csv", tardata[6]);
             savetofile("D_alpha.csv", tardata[7]);
             savetofile("r.csv", tardata[8]);
+            savetofile("r_BH_apparent.csv", tardata[9]);
         }
     }
 
+    savetofile("r_BH_scalar.csv", r_bh_scalar);
+    savetofile("S_BH_apparent.csv", S_bh_scalar);
 }
 
-using namespace std::chrono;
+using namespace chrono;
 
 int main() {
     auto start = high_resolution_clock::now();
-    std::filesystem::path cwd = std::filesystem::current_path();
+    filesystem::path cwd = filesystem::current_path();
 
-    std::vector<std::string> filenames = {
+    vector<string> filenames = {
             "A.csv",
             "B.csv",
             "D_A.csv",
@@ -324,19 +445,22 @@ int main() {
             "alpha.csv",
             "D_alpha.csv",
             "r.csv",
+            "r_BH_apparent.csv",
+            "S_BH_apparent.csv",
+            "r_BH_scalar.csv",
     };
 
-    for (const std::string& filename : filenames) {
-        std::filesystem::path filepath = cwd / filename;
-        if (std::filesystem::exists(filepath)) {
-            if (std::filesystem::remove(filepath)) {
-                std::cout << "File deleted successfully: " << filepath << std::endl;
+    for (const string& filename : filenames) {
+        filesystem::path filepath = cwd / filename;
+        if (filesystem::exists(filepath)) {
+            if (filesystem::remove(filepath)) {
+                cout << "File deleted successfully: " << filepath << endl;
             } else {
-                std::cerr << "Error deleting the file: " << filepath << std::endl;
+                cerr << "Error deleting the file: " << filepath << endl;
                 return 1;
             }
         } else {
-            std::cout << "File does not exist: " << filepath << std::endl;
+            cout << "File does not exist: " << filepath << endl;
         }
     }
 
@@ -348,7 +472,7 @@ int main() {
     auto end = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(end - start);
     auto elapsed = static_cast<float>(duration.count());
-    std::cout << "Code took " << elapsed/1000000 << " seconds to execute" << std::endl;
+    cout << "Code took " << elapsed/1000000 << " seconds to execute" << endl;
 
     return 1;
 }
