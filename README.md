@@ -36,3 +36,9 @@ The target names and their functions for each project are found below.
 
 * ```exercise1A``` - Tasks A.1, A.2 - Script for demonstrations of numerical approximations of the first and second derivatives of arbitrary functions
 * ```exercise1B``` - Tasks B.1 through B.5 - Script for numerical computations involving the advection equation
+
+
+#### Exercise 2
+
+* ```exercise2_B2``` - Tasks B.2 - Script simulating the evolution of the ADM equations without 1+log slicing
+* ```exercise2_B34``` - Tasks B.3/B.4 - Script simulating the evolution of the ADM equations with 1+log slicing, also tracking the black hole horizon
