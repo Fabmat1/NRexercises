@@ -38,10 +38,11 @@ vector<double> spatial_derivative(double dx, const vector<double> &y, bool neg_b
     for (int i = 2; i < y.size() - 2; ++i) {
         result[i] = (1. / 12 * y[i - 2] - 2./3 * y[i - 1] + 2./3 * y[i + 1] - 1. / 12 * y[i + 2]) / (dx);
     }
+    s -= 1;
     result[0] = (1. / 12 * y[1] * factor - 2./3 * y[0] * factor + 2./3 * y[1] - 1. / 12 * y[2]) / (dx);
     result[1] = (1. / 12 * y[0] * factor - 2./3 * y[0] + 2./3 * y[2] - 1. / 12 * y[3]) / (dx);
-    result[s - 1] = (1. / 12 * y[s - 3] - 2./3 * y[s - 2] + 2./3 * factor2 - 1. / 12 * factor2) / (dx);
-    result[s - 2] = (1. / 12 * y[s - 4] - 2./3 * y[s - 3] + 2./3 * y[s - 1] - 1. / 12 * factor2) / (dx);
+    result[s] = (1. / 12 * y[s - 2] - 2./3 * y[s - 1] + 2./3 * factor2 - 1. / 12 * factor2) / (dx);
+    result[s - 1] = (1. / 12 * y[s - 3] - 2./3 * y[s - 2] + 2./3 * y[s] - 1. / 12 * factor2) / (dx);
 
     return result;
 }
@@ -215,14 +216,18 @@ void savetofile(string fname, vector<double> timestepline){
     if (!of){
         ofstream of(fname);
         for (int i = 0; i < timestepline.size()-1; ++i) {
-            of << std::fixed << std::setprecision(8) << timestepline[i] << ", ";
+            if (i % 5 == 0) {
+                of << fixed << setprecision(8) << timestepline[i] << ", ";
+            }
         }
         of << timestepline[timestepline.size()-1] << "\n";
         of.close();
     }
     else {
         for (int i = 0; i < timestepline.size()-1; ++i) {
-            of << std::fixed << std::setprecision(8) << timestepline[i] << ", ";
+            if (i % 5 == 0) {
+                of << fixed << setprecision(8) << timestepline[i] << ", ";
+            }
         }
         of << timestepline[timestepline.size()-1] << "\n";
         of.close();
@@ -265,9 +270,8 @@ void timeevolution(const vector<double>& r, double M, double dt, double N_T, dou
 
 
     for (int i = 0; i < N_T; ++i) {
-//        tardata = Euler(tardata, dt, M, dr);
         tardata = RK4(tardata, dt, M, dr);
-        if (i % 200 == 0) {
+        if (i % 25 == 0) {
             savetofile("A.csv", tardata[0]);
             savetofile("B.csv", tardata[1]);
             savetofile("D_A.csv", tardata[2]);

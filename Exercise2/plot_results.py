@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -45,25 +47,33 @@ def create_animation(file, r_array, outname, dt, y_limits=None, x_limits=None, l
     plt.close(fig)
 
 
+def static_plot(r, A, ylim, xlim, fname, title=None, xlabel=None, ylabel=None):
+    plt.ylim(ylim)
+    plt.xlim(xlim)
+
+    A_len = A.shape[0]
+    d_len = math.floor(A_len/10)
+    print(d_len)
+
+    i = 1
+    while i < A_len:
+        plt.plot(r[0, :], A[i, :])
+        i += d_len
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.tight_layout()
+    plt.savefig(fname)
+    plt.show()
+
+
 A = np.genfromtxt("../output/A.csv", delimiter=",")
+B = np.genfromtxt("../output/B.csv", delimiter=",")
 r = np.genfromtxt("../output/r.csv", delimiter=",")
 
 
-# plt.yscale("log")
-plt.ylim(0.9, 7)
-plt.xlim(0, 10)
-
-plt.plot(r[0, :], A[1, :])
-plt.plot(r[0, :], A[10, :])
-plt.plot(r[0, :], A[20, :])
-plt.plot(r[0, :], A[30, :])
-plt.plot(r[0, :], A[40, :])
-plt.plot(r[0, :], A[50, :])
-plt.plot(r[0, :], A[60, :])
-plt.plot(r[0, :], A[70, :])
-plt.plot(r[0, :], A[80, :])
-plt.tight_layout()
-plt.show()
+static_plot(r, A, (0.9, 7), (0, 10), "A_plot.pdf", title="Plot of the Parameter A", ylabel="Parameter A", xlabel="Radius $r$")
+static_plot(r, B, (0, 1), (0, 10), "B_plot.pdf", title="Plot of the Parameter B", ylabel="Parameter B", xlabel="Radius $r$")
 
 
 r_bh = np.loadtxt("../output/r_BH_scalar.csv", delimiter=",")
