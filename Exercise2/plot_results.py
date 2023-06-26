@@ -53,7 +53,6 @@ def static_plot(r, A, ylim, xlim, fname, title=None, xlabel=None, ylabel=None):
 
     A_len = A.shape[0]
     d_len = math.floor(A_len/10)
-    print(d_len)
 
     i = 1
     while i < A_len:
@@ -69,11 +68,17 @@ def static_plot(r, A, ylim, xlim, fname, title=None, xlabel=None, ylabel=None):
 
 A = np.genfromtxt("../output/A.csv", delimiter=",")
 B = np.genfromtxt("../output/B.csv", delimiter=",")
+alpha = np.genfromtxt("../output/alpha.csv", delimiter=",")
+K_A = np.genfromtxt("../output/K_A.csv", delimiter=",")
+K_B = np.genfromtxt("../output/K_B.csv", delimiter=",")
 r = np.genfromtxt("../output/r.csv", delimiter=",")
 
 
 static_plot(r, A, (0.9, 7), (0, 10), "A_plot.pdf", title="Plot of the Parameter A", ylabel="Parameter A", xlabel="Radius $r$")
 static_plot(r, B, (0, 1), (0, 10), "B_plot.pdf", title="Plot of the Parameter B", ylabel="Parameter B", xlabel="Radius $r$")
+static_plot(r, alpha, (0, 1), (0, 10), "alpha_plot.pdf", title=r"Plot of the Parameter $\alpha$", ylabel=r"Parameter $\alpha$", xlabel="Radius $r$")
+static_plot(r, K_A, (-1.2, 0.2), (0, 10), "K_A_plot.pdf", title=r"Plot of the Parameter $K_A$", ylabel="Parameter $K_A$", xlabel="Radius $r$")
+static_plot(r, K_B, (0, 1.5), (0, 10), "K_B_plot.pdf", title=r"Plot of the Parameter $K_B$", ylabel="Parameter $K_B$", xlabel="Radius $r$")
 
 
 r_bh = np.loadtxt("../output/r_BH_scalar.csv", delimiter=",")
@@ -106,7 +111,11 @@ create_animation("../output/r_BH_apparent.csv", r[0, :], "r_BH_apparent_animatio
                  title="Black hole radius plotted over $r$")
 create_animation("../output/B.csv", r[0, :], "B_animation.mp4", 0.005*25, y_limits=(0, 1),
                  x_limits=(0, 10), color="navy", yaxis_name="Parameter $B$", title="Parameter $B$ plotted over $r$")
-create_animation("../output/alpha.csv", r[0, :], "alpha_animation.mp4", 0.005*25, y_limits=(0, 5),
+create_animation("../output/alpha.csv", r[0, :], "alpha_animation.mp4", 0.005*25, y_limits=(0, 1),
                  x_limits=(0, 10), color="navy", yaxis_name=r"Parameter $\alpha$", title=r"Parameter $\alpha$ plotted over $r$")
+create_animation("../output/K_A.csv", r[0, :], "K_A_animation.mp4", 0.005*25, y_limits=(-1.2, 0.2),
+                 x_limits=(0, 10), color="navy", yaxis_name=r"Parameter $K_A$", title=r"Parameter $K_A$ plotted over $r$")
+create_animation("../output/K_B.csv", r[0, :], "K_B_animation.mp4", 0.005*25, y_limits=(0, 1.5),
+                 x_limits=(0, 10), color="navy", yaxis_name=r"Parameter $K_B$", title=r"Parameter $K_B$ plotted over $r$")
 
 
